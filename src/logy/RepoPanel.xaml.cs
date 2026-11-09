@@ -8,6 +8,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Logy.Core.Git;
 using Logy.Core.Graph;
+using Logy.Core.Pulls;
 using Logy.Core.Repos;
 
 namespace Logy;
@@ -51,6 +52,9 @@ public partial class RepoPanel : UserControl
 
     private CancellationTokenSource? _detailsCts;
 
+    private readonly PullSource? _pullSource;
+    private bool _pullsLoading;
+
     public RepoPanel(RepoInfo repo)
     {
         Repo = repo;
@@ -59,6 +63,8 @@ public partial class RepoPanel : UserControl
         NameText.Text = repo.Name;
         ChipText.Text = repo.Remote.Chip;
         ChipBorder.Visibility = repo.Remote.Chip.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        _pullSource = PullSource.From(repo.Remote);
+        PullsToggle.Visibility = _pullSource is null ? Visibility.Collapsed : Visibility.Visible;
 
         _debounce = new DispatcherTimer(DispatcherPriority.Background, Dispatcher) { Interval = Debounce };
         _debounce.Tick += (_, _) =>
@@ -81,6 +87,7 @@ public partial class RepoPanel : UserControl
 
         StartWatchers();
         RequestRefresh();
+        _ = LoadPullsAsync();
     }
 
     public event EventHandler? CloseRequested;
@@ -258,8 +265,11 @@ public partial class RepoPanel : UserControl
 
         _rows = items;
         CommitList.ItemsSource = items;
-        ListMessage.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        ListMessage.Text = items.Count == 0 ? "no commits yet" : "";
+        if (PullsToggle.IsChecked != true)
+        {
+            ListMessage.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            ListMessage.Text = items.Count == 0 ? "no commits yet" : "";
+        }
 
         var keep = selected is null ? null : items.FirstOrDefault(i => i.Hash == selected);
         if (keep is not null)
@@ -409,6 +419,10 @@ public partial class RepoPanel : UserControl
             if (result.Ok)
             {
                 ClearFailure();
+                if (name == "Fetch")
+                {
+                    _ = LoadPullsAsync();
+                }
             }
             else
             {
@@ -492,8 +506,74 @@ public partial class RepoPanel : UserControl
 
     private void Close_Click(object sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
 
-    private void ResizeHandle_DragDelta(object sender, DragDeltaEventArgs e) =>
-        Width = Math.Clamp(Width + e.HorizontalChange, 220, 900);
+    // ---- pull requests ----
+
+    private void PullsToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        var on = PullsToggle.IsChecked == true;
+        PullList.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        CommitList.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+        if (on)
+        {
+            DetailsPane.Visibility = Visibility.Collapsed;
+            _ = LoadPullsAsync();
+        }
+        else
+        {
+            ListMessage.Visibility = _rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            ListMessage.Text = _rows.Count == 0 ? "no commits yet" : "";
+            DetailsPane.Visibility = CommitList.SelectedItem is CommitRowViewModel ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    /// <summary>Reads open pull requests (read-only) and updates the PR button count and list.</summary>
+    private async Task LoadPullsAsync()
+    {
+        if (_pullSource is null || _pullsLoading || _shutdown)
+        {
+            return;
+        }
+
+        _pullsLoading = true;
+        if (PullsToggle.IsChecked == true && PullList.Items.Count == 0)
+        {
+            ShowListMessage("loading pull requests…");
+        }
+
+        try
+        {
+            var result = await App.Pulls.LoadAsync(_pullSource, Repo.Path, _life.Token);
+            var now = DateTimeOffset.Now;
+            PullList.ItemsSource = result.Pulls.Select(p => new PullRowViewModel(p, now)).ToList();
+            PullsToggleText.Text = result.Error is null && result.Pulls.Count > 0 ? $"PR {result.Pulls.Count}" : "PR";
+            PullsToggle.ToolTip = result.Error is null
+                ? $"{result.Pulls.Count} open pull request{(result.Pulls.Count == 1 ? "" : "s")}"
+                : "pull requests: " + result.Error;
+            if (PullsToggle.IsChecked == true)
+            {
+                var msg = result.Error ?? (result.Pulls.Count == 0 ? "no open pull requests" : null);
+                ListMessage.Text = msg ?? "";
+                ListMessage.Visibility = msg is null ? Visibility.Collapsed : Visibility.Visible;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _pullsLoading = false;
+        }
+    }
+
+    private void PullList_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject src
+            && ItemsControl.ContainerFromElement(PullList, src) is ListBoxItem { DataContext: PullRowViewModel row }
+            && row.Pull.WebUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(row.Pull.WebUrl) { UseShellExecute = true });
+        }
+    }
 
     // ---- selection and details ----
 

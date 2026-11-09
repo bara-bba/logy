@@ -42,15 +42,18 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="34" />
             </Grid.ColumnDefinitions>
-            <ScrollViewer x:Name="PanelScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="PanelHost" Orientation="Horizontal" />
+            <!-- Panels share the width as star columns with splitters between them; the host
+                 grows past the window (horizontal scroll) only when panels hit their 220 px minimum. -->
+            <ScrollViewer x:Name="PanelScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                          SizeChanged="PanelScroller_SizeChanged">
+                <Grid x:Name="PanelHost" HorizontalAlignment="Left" />
             </ScrollViewer>
             <TextBlock x:Name="EmptyHint" Text="Press + to add a repo" Foreground="{StaticResource Brush.TextTertiary}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />
 
             <Border Grid.Column="1" Background="{StaticResource Brush.Card}" CornerRadius="6" Margin="4,0,4,0">
                 <Button x:Name="AddButton" Style="{StaticResource AccentIconButton}" Content="&#xE710;" ToolTip="Add repo"
-                        VerticalAlignment="Top" Margin="0,4,0,0" Click="Add_Click" />
+                        VerticalAlignment="Center" Click="Add_Click" />
             </Border>
 
             <Popup x:Name="Picker" PlacementTarget="{Binding ElementName=AddButton}" Placement="Left" StaysOpen="False"

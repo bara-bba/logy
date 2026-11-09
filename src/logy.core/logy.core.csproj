@@ -16,4 +16,8 @@
     <InternalsVisibleTo Include="logy.tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.CodeCommit" Version="4.0.102.5" />
+  </ItemGroup>
+
 </Project>

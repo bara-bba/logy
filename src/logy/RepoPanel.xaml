@@ -2,7 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Logy"
-             x:Name="Self" Width="320" Margin="0,0,6,0">
+             x:Name="Self" MinWidth="220">
     <UserControl.Resources>
         <Style x:Key="Badge" TargetType="TextBlock">
             <Setter Property="FontSize" Value="10" />
@@ -46,11 +46,6 @@
     </UserControl.Resources>
 
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="4" />
-        </Grid.ColumnDefinitions>
-
         <Border Background="{StaticResource Brush.Card}" CornerRadius="6" ClipToBounds="True">
             <Grid>
                 <Grid.RowDefinitions>
@@ -64,6 +59,10 @@
                 <Border Background="{StaticResource Brush.Header}" CornerRadius="6,6,0,0">
                     <DockPanel Margin="8,0,5,0" LastChildFill="True">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ToggleButton x:Name="PullsToggle" Style="{StaticResource PanelToggle}" Margin="2,0" ToolTip="Open pull requests"
+                                          Checked="PullsToggle_Changed" Unchecked="PullsToggle_Changed">
+                                <TextBlock x:Name="PullsToggleText" Text="PR" />
+                            </ToggleButton>
                             <Button x:Name="FetchButton" Style="{StaticResource IconButton}" Content="&#xE895;" ToolTip="Fetch" Margin="2,0" Click="Fetch_Click" />
                             <Button x:Name="PullButton" Style="{StaticResource IconButton}" Content="&#xE896;" ToolTip="Pull (fast-forward only)" Margin="2,0" Click="Pull_Click" />
                             <Button x:Name="PushButton" Style="{StaticResource AccentIconButton}" Content="&#xE898;" ToolTip="Push" Margin="2,0" Click="Push_Click"
@@ -157,6 +156,32 @@
                 <TextBlock x:Name="ListMessage" Grid.Row="2" Foreground="{StaticResource Brush.TextTertiary}" Margin="12"
                            TextWrapping="Wrap" Visibility="Collapsed" />
 
+                <!-- Pull request view (replaces the commit list while PR is on). -->
+                <ListBox x:Name="PullList" Grid.Row="2" Background="Transparent" BorderThickness="0" Visibility="Collapsed"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" PreviewMouseLeftButtonUp="PullList_Click">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource CommitItem}">
+                            <Setter Property="Height" Value="42" />
+                            <Setter Property="Cursor" Value="Hand" />
+                            <Setter Property="ToolTip" Value="{Binding Tooltip}" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type local:PullRowViewModel}">
+                            <StackPanel Margin="10,4,8,4">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Age}" FontSize="10" Foreground="{StaticResource Brush.TextTertiary}" Margin="6,0,0,0" />
+                                    <TextBlock FontSize="11" TextTrimming="CharacterEllipsis">
+                                        <Run Text="{Binding Number, Mode=OneWay}" Foreground="{StaticResource Brush.TextTertiary}" />
+                                        <Run Text="{Binding Title, Mode=OneWay}" />
+                                    </TextBlock>
+                                </DockPanel>
+                                <TextBlock Text="{Binding Line2}" FontSize="10" Foreground="{StaticResource Brush.TextSecondary}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
                 <!-- Details pane. -->
                 <Border x:Name="DetailsPane" Grid.Row="3" Height="160" Background="{StaticResource Brush.Card}" Visibility="Collapsed">
                     <Grid>
@@ -173,13 +198,5 @@
             </Grid>
         </Border>
 
-        <!-- 4 px resize handle on the right edge. -->
-        <Thumb Grid.Column="1" Cursor="SizeWE" DragDelta="ResizeHandle_DragDelta">
-            <Thumb.Template>
-                <ControlTemplate TargetType="Thumb">
-                    <Border Background="Transparent" />
-                </ControlTemplate>
-            </Thumb.Template>
-        </Thumb>
     </Grid>
 </UserControl>

@@ -31,7 +31,12 @@ public partial class MainWindow : Window
         StateChanged += (_, _) => MaxButton.Content = WindowState == WindowState.Maximized ? "\uE923" : "\uE922";
     }
 
-    private IEnumerable<RepoPanel> Panels => PanelHost.Children.OfType<RepoPanel>();
+    private const double PanelMin = 220;
+    private const double SplitterWidth = 6;
+
+    private readonly List<RepoPanel> _panels = [];
+
+    private IEnumerable<RepoPanel> Panels => _panels;
 
     private void RestoreSession()
     {
@@ -82,12 +87,12 @@ public partial class MainWindow : Window
         panel.CloseRequested += (_, _) =>
         {
             panel.Shutdown();
-            PanelHost.Children.Remove(panel);
+            _panels.Remove(panel);
+            LayoutPanels();
             SaveOpenRepos();
-            UpdateEmptyHint();
         };
-        PanelHost.Children.Add(panel);
-        UpdateEmptyHint();
+        _panels.Add(panel);
+        LayoutPanels();
         if (save)
         {
             SaveOpenRepos();
@@ -95,8 +100,50 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Rebuilds the star columns: panel, splitter, panel, ... Every panel gets an equal share.</summary>
+    private void LayoutPanels()
+    {
+        PanelHost.Children.Clear();
+        PanelHost.ColumnDefinitions.Clear();
+        for (var i = 0; i < _panels.Count; i++)
+        {
+            if (i > 0)
+            {
+                PanelHost.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(SplitterWidth) });
+                var splitter = new GridSplitter
+                {
+                    Width = SplitterWidth,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    ResizeBehavior = GridResizeBehavior.PreviousAndNext,
+                    ResizeDirection = GridResizeDirection.Columns,
+                    Background = System.Windows.Media.Brushes.Transparent,
+                    Focusable = false,
+                };
+                Grid.SetColumn(splitter, PanelHost.ColumnDefinitions.Count - 1);
+                PanelHost.Children.Add(splitter);
+            }
+
+            PanelHost.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = PanelMin });
+            Grid.SetColumn(_panels[i], PanelHost.ColumnDefinitions.Count - 1);
+            PanelHost.Children.Add(_panels[i]);
+        }
+
+        SizeHost();
+        UpdateEmptyHint();
+    }
+
+    /// <summary>Host = visible width, or the panels' minimum total when that is wider.</summary>
+    private void SizeHost()
+    {
+        var min = _panels.Count * PanelMin + Math.Max(0, _panels.Count - 1) * SplitterWidth;
+        var viewport = PanelScroller.ActualWidth;
+        PanelHost.Width = Math.Max(min, viewport > 0 ? viewport : min);
+    }
+
+    private void PanelScroller_SizeChanged(object sender, SizeChangedEventArgs e) => SizeHost();
+
     private void UpdateEmptyHint() =>
-        EmptyHint.Visibility = PanelHost.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        EmptyHint.Visibility = _panels.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
     private void SaveOpenRepos()
     {

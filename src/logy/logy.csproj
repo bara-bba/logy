@@ -12,7 +12,7 @@
     <RootNamespace>Logy</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <!-- Velopack must run before any window, so Program.cs supplies Main instead of App.xaml. -->
     <StartupObject>Logy.Program</StartupObject>
   </PropertyGroup>

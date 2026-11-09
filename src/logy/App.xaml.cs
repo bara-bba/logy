@@ -21,6 +21,8 @@ public partial class App : Application
 
     public static GitRunner Git { get; } = new();
 
+    public static Logy.Core.Pulls.PullRequestService Pulls { get; } = new(Git);
+
     /// <summary>False when <c>git --version</c> failed at startup.</summary>
     public static bool GitAvailable { get; private set; } = true;
 

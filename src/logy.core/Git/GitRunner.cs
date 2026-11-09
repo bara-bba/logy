@@ -50,7 +50,9 @@ public sealed class GitRunner
         IEnumerable<string> args,
         bool skipCredentialStore = false,
         TimeSpan? timeout = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? stdin = null,
+        Dictionary<string, string>? extraEnv = null)
     {
         var psi = new ProcessStartInfo(_gitExe)
         {
@@ -70,9 +72,19 @@ public sealed class GitRunner
         // Never wait on a hidden terminal prompt, and never let our own status calls write the index.
         psi.Environment["GIT_TERMINAL_PROMPT"] = "0";
         psi.Environment["GIT_OPTIONAL_LOCKS"] = "0";
+        foreach (var (k, v) in extraEnv ?? new Dictionary<string, string>())
+        {
+            psi.Environment[k] = v;
+        }
 
         using var proc = new Process { StartInfo = psi };
         proc.Start();
+        if (stdin is not null)
+        {
+            // Only for `git credential fill`; everything else gets end-of-file at once.
+            proc.StandardInput.Write(stdin);
+        }
+
         proc.StandardInput.Close();
         var stdout = proc.StandardOutput.ReadToEndAsync();
         var stderr = proc.StandardError.ReadToEndAsync();

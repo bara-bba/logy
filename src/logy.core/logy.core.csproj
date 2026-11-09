@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Pure logic: git runner, repo scanner, settings, palettes, log parsing and lane layout.
+    No WPF here, so everything is unit-testable from tests/logy.tests without a UI.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Logy.Core</RootNamespace>
+    <AssemblyName>logy.core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="logy.tests" />
+  </ItemGroup>
+
+</Project>

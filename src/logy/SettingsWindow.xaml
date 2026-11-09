@@ -1,0 +1,56 @@
+<Window x:Class="Logy.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="logy settings" Width="420" Height="520" ResizeMode="NoResize"
+        WindowStyle="None" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource Brush.App}" Foreground="{StaticResource Brush.TextPrimary}"
+        FontFamily="Segoe UI" FontSize="12" KeyDown="Window_KeyDown">
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="34" ResizeBorderThickness="0" GlassFrameThickness="0" UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+    <Window.Resources>
+        <Style x:Key="Section" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextTertiary}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Margin" Value="0,14,0,6" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+        <Grid DockPanel.Dock="Top" Height="34">
+            <TextBlock Text="Settings" VerticalAlignment="Center" Margin="14,0,0,0" />
+            <Button Style="{StaticResource CaptionCloseButton}" Content="&#xE8BB;" HorizontalAlignment="Right"
+                    WindowChrome.IsHitTestVisibleInChrome="True" Click="Close_Click" ToolTip="Close" />
+        </Grid>
+
+        <TextBlock x:Name="VersionText" DockPanel.Dock="Bottom" Foreground="{StaticResource Brush.TextTertiary}" FontSize="11" Margin="16,0,16,12" />
+
+        <StackPanel Margin="16,0,16,0">
+            <TextBlock Text="ROOT FOLDER" Style="{StaticResource Section}" Margin="0,4,0,6" />
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Style="{StaticResource TextButton}" Content="Browse" Margin="6,0,0,0" Click="Browse_Click" />
+                <TextBox x:Name="RootBox" LostKeyboardFocus="RootBox_LostKeyboardFocus" KeyDown="RootBox_KeyDown" />
+            </DockPanel>
+
+            <TextBlock Text="ACCENT" Style="{StaticResource Section}" />
+            <StackPanel Orientation="Horizontal">
+                <ItemsControl x:Name="AccentSwatches" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <TextBox x:Name="AccentBox" Width="90" Margin="6,0,0,0" FontFamily="{StaticResource Font.Mono}" TextChanged="AccentBox_TextChanged" />
+            </StackPanel>
+
+            <TextBlock Text="TREE COLOURS" Style="{StaticResource Section}" />
+            <WrapPanel x:Name="PresetPanel" />
+            <WrapPanel x:Name="ColorSquares" Margin="0,10,0,0" />
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <TextBlock Text="Selected colour" Foreground="{StaticResource Brush.TextSecondary}" VerticalAlignment="Center" />
+                <TextBox x:Name="TreeBox" Width="90" Margin="8,0,0,0" FontFamily="{StaticResource Font.Mono}" TextChanged="TreeBox_TextChanged" />
+            </StackPanel>
+        </StackPanel>
+    </DockPanel>
+</Window>

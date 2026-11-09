@@ -1,0 +1,75 @@
+name: Release
+
+# Triggered by a v* tag (v0.1.0, v0.2.0 ...). Builds, then packs a Velopack installer and
+# attaches it to a GitHub Release.
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write   # required to create the Release and upload assets
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # The tag is the single source of truth for the version.
+      - name: Derive version from tag
+        id: ver
+        shell: pwsh
+        run: |
+          $v = '${{ github.ref_name }}' -replace '^v', ''
+          if ($v -notmatch '^\d+\.\d+\.\d+') { throw "tag '${{ github.ref_name }}' is not vMAJOR.MINOR.PATCH" }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Releasing $v"
+
+      - name: Build
+        run: dotnet build src/logy/logy.csproj -c Release
+
+      # Framework-dependent; Velopack installs the .NET 8 Desktop Runtime on first run (--framework).
+      - name: Publish
+        run: >
+          dotnet publish src/logy/logy.csproj -c Release -r win-x64 --self-contained false
+          -o publish -p:Version=${{ steps.ver.outputs.version }}
+
+      - name: Install vpk
+        run: dotnet tool install -g vpk --version 1.2.0
+
+      # Lets vpk compute a delta against earlier releases; fails harmlessly on the first release.
+      - name: Download previous releases (for delta generation)
+        continue-on-error: true
+        run: >
+          vpk download github --repoUrl https://github.com/${{ github.repository }}
+          --token ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pack installer
+        run: >
+          vpk pack --packId logy --packTitle logy
+          --packAuthors "${{ github.repository_owner }}"
+          --packVersion ${{ steps.ver.outputs.version }}
+          --packDir publish --mainExe logy.exe
+          --icon src/logy/app.ico
+          --framework net8.0-x64-desktop
+
+      - name: Publish GitHub Release
+        run: >
+          vpk upload github --repoUrl https://github.com/${{ github.repository }}
+          --token ${{ secrets.GITHUB_TOKEN }}
+          --tag ${{ github.ref_name }}
+          --releaseName "logy ${{ steps.ver.outputs.version }}"
+          --publish
+
+      - name: Upload artefacts to the workflow run as well
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logy-${{ steps.ver.outputs.version }}
+          path: Releases
+          if-no-files-found: warn

@@ -37,8 +37,8 @@ def render(size, tile, fg, bold=False):
     pad = 40 * s
     d.rounded_rectangle((pad, pad, big - pad, big - pad), radius=200 * s, fill=tile)
 
-    stroke = (112 if bold else 64) * s
-    r = (124 if bold else 80) * s
+    stroke = (80 if bold else 40) * s
+    r = (100 if bold else 62) * s
     xm, xb = (350 if bold else 360) * s, (690 if bold else 664) * s
     top, bot, mid = 240 * s, 784 * s, 512 * s
 

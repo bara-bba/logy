@@ -329,6 +329,50 @@ public partial class RepoPanel : UserControl
         GoneText.Visibility = s.UpstreamGone ? Visibility.Visible : Visibility.Collapsed;
         DivergedText.Visibility = s.Diverged ? Visibility.Visible : Visibility.Collapsed;
         UpdateButtons();
+        Dispatcher.BeginInvoke(UpdateHeaderLayout, DispatcherPriority.Loaded);
+    }
+
+    private bool _narrowHeader;
+
+    private void HeaderGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (e.WidthChanged)
+        {
+            UpdateHeaderLayout();
+        }
+    }
+
+    /// <summary>
+    /// Narrow mode when the title's natural width plus the buttons' does not fit: the title gets the
+    /// whole first row and the buttons move to a second row. Natural widths come from the children's
+    /// DesiredSize (a horizontal StackPanel measures them unconstrained), so switching modes does not
+    /// change them and the layout cannot flip back and forth.
+    /// </summary>
+    private void UpdateHeaderLayout()
+    {
+        var available = HeaderGrid.ActualWidth;
+        if (available <= 0)
+        {
+            return;
+        }
+
+        static double Natural(Panel p) =>
+            p.Children.OfType<FrameworkElement>().Where(c => c.Visibility != Visibility.Collapsed).Sum(c => c.DesiredSize.Width);
+
+        var title = Natural(HeaderTitle);
+        var buttons = HeaderButtons.Children.OfType<FrameworkElement>().Sum(c => c is Panel p ? Natural(p) : c.DesiredSize.Width);
+        var narrow = title + buttons + 8 > available;
+        if (narrow == _narrowHeader)
+        {
+            return;
+        }
+
+        _narrowHeader = narrow;
+        HeaderRow2.Height = new GridLength(narrow ? 32 : 0);
+        Grid.SetRow(HeaderButtons, narrow ? 1 : 0);
+        Grid.SetColumn(HeaderButtons, narrow ? 0 : 1);
+        Grid.SetColumnSpan(HeaderButtons, narrow ? 2 : 1);
+        Grid.SetColumnSpan(HeaderTitle, narrow ? 2 : 1);
     }
 
     private static void SetBadge(TextBlock t, string? text)

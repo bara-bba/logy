@@ -142,8 +142,38 @@ public partial class MainWindow : Window
 
     private void PanelScroller_SizeChanged(object sender, SizeChangedEventArgs e) => SizeHost();
 
-    private void UpdateEmptyHint() =>
+    private void UpdateEmptyHint()
+    {
         EmptyHint.Visibility = _panels.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateAddStrip(Mouse.GetPosition(Body));
+    }
+
+    // ---- + strip: shown only near the right edge (or with no panels / picker open) ----
+
+    private const double StripWidth = 38; // 4 px gap + 34 px strip
+    private const double HotZone = 28;    // distance from the right edge that reveals the strip
+
+    private void Window_PreviewMouseMove(object sender, MouseEventArgs e) => UpdateAddStrip(e.GetPosition(Body));
+
+    private void Window_MouseLeave(object sender, MouseEventArgs e) => UpdateAddStrip(null);
+
+    private void Picker_Closed(object? sender, EventArgs e) =>
+        UpdateAddStrip(IsMouseOver ? Mouse.GetPosition(Body) : null);
+
+    private void UpdateAddStrip(Point? mouse)
+    {
+        var shown = AddStrip.Visibility == Visibility.Visible;
+        var zone = Body.ActualWidth - (shown ? StripWidth + 10 : HotZone);
+        var near = mouse is { } m && Body.ActualWidth > 0 && m.X >= zone && m.Y >= 0 && m.Y <= Body.ActualHeight + 6;
+        var show = _panels.Count == 0 || Picker.IsOpen || near;
+        if (show == shown)
+        {
+            return;
+        }
+
+        AddStrip.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        AddColumn.Width = new GridLength(show ? StripWidth : 0);
+    }
 
     private void SaveOpenRepos()
     {

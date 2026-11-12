@@ -49,16 +49,27 @@
         <Border Background="{StaticResource Brush.Card}" CornerRadius="6" ClipToBounds="True">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="36" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Header. -->
+                <!-- Header. Wide: title left, buttons right on one 36 px row. Narrow (title and
+                     buttons do not fit side by side): title on its own row, buttons below. -->
                 <Border Background="{StaticResource Brush.Header}" CornerRadius="6,6,0,0">
-                    <DockPanel Margin="8,0,5,0" LastChildFill="True">
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Grid x:Name="HeaderGrid" Margin="8,0,5,0" SizeChanged="HeaderGrid_SizeChanged">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="36" />
+                            <RowDefinition x:Name="HeaderRow2" Height="0" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <DockPanel x:Name="HeaderButtons" Grid.Column="1" VerticalAlignment="Center" LastChildFill="False">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE711;" ToolTip="Close panel" Margin="2,0,0,0" Click="Close_Click" />
+                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
                             <ToggleButton x:Name="PullsToggle" Style="{StaticResource PanelToggle}" Margin="2,0" ToolTip="Open pull requests"
                                           Checked="PullsToggle_Changed" Unchecked="PullsToggle_Changed">
                                 <TextBlock x:Name="PullsToggleText" Text="PR" />
@@ -67,9 +78,9 @@
                             <Button x:Name="PullButton" Style="{StaticResource IconButton}" Content="&#xE896;" ToolTip="Pull (fast-forward only)" Margin="2,0" Click="Pull_Click" />
                             <Button x:Name="PushButton" Style="{StaticResource AccentIconButton}" Content="&#xE898;" ToolTip="Push" Margin="2,0" Click="Push_Click"
                                     ToolTipService.ShowOnDisabled="True" />
-                            <Button Style="{StaticResource IconButton}" Content="&#xE711;" ToolTip="Close panel" Margin="2,0,0,0" Click="Close_Click" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True">
+                            </StackPanel>
+                        </DockPanel>
+                        <StackPanel x:Name="HeaderTitle" Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="True">
                             <TextBlock x:Name="NameText" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" />
                             <Border x:Name="ChipBorder" Style="{StaticResource Chip}" Margin="6,0,0,0">
                                 <TextBlock x:Name="ChipText" FontSize="9" Foreground="{StaticResource Brush.TextPrimary}" />
@@ -83,7 +94,7 @@
                             <TextBlock x:Name="DivergedText" Style="{StaticResource Badge}" Text="diverged" Foreground="{StaticResource Brush.Danger}"
                                        ToolTip="branches diverged: rebase or merge in a terminal" />
                         </StackPanel>
-                    </DockPanel>
+                    </Grid>
                 </Border>
 
                 <!-- Error bar. -->

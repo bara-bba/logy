@@ -4,7 +4,8 @@
         Title="logy" Width="960" Height="600" MinWidth="420" MinHeight="300"
         WindowStyle="None" ResizeMode="CanResize"
         Background="{StaticResource Brush.App}" Foreground="{StaticResource Brush.TextPrimary}"
-        FontFamily="Segoe UI" FontSize="12" Icon="app.ico">
+        FontFamily="Segoe UI" FontSize="12" Icon="app.ico"
+        PreviewMouseMove="Window_PreviewMouseMove" MouseLeave="Window_MouseLeave">
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="34" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
@@ -37,10 +38,11 @@
         </Grid>
 
         <!-- Body: panels as columns, then the + strip. -->
-        <Grid Grid.Row="1" Margin="6,0,0,6">
+        <!-- The + strip is hidden (width 0) until the cursor nears the right edge; see ShowAddStrip. -->
+        <Grid x:Name="Body" Grid.Row="1" Margin="6,0,6,6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="34" />
+                <ColumnDefinition x:Name="AddColumn" Width="0" />
             </Grid.ColumnDefinitions>
             <!-- Panels share the width as star columns with splitters between them; the host
                  grows past the window (horizontal scroll) only when panels hit their 220 px minimum. -->
@@ -51,13 +53,14 @@
             <TextBlock x:Name="EmptyHint" Text="Press + to add a repo" Foreground="{StaticResource Brush.TextTertiary}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />
 
-            <Border Grid.Column="1" Background="{StaticResource Brush.Card}" CornerRadius="6" Margin="4,0,4,0">
+            <Border x:Name="AddStrip" Grid.Column="1" Background="{StaticResource Brush.Card}" CornerRadius="6" Margin="4,0,0,0"
+                    Visibility="Collapsed">
                 <Button x:Name="AddButton" Style="{StaticResource AccentIconButton}" Content="&#xE710;" ToolTip="Add repo"
                         VerticalAlignment="Center" Click="Add_Click" />
             </Border>
 
             <Popup x:Name="Picker" PlacementTarget="{Binding ElementName=AddButton}" Placement="Left" StaysOpen="False"
-                   AllowsTransparency="True" Opened="Picker_Opened" HorizontalOffset="-6">
+                   AllowsTransparency="True" Opened="Picker_Opened" Closed="Picker_Closed" HorizontalOffset="-6">
                 <Border Width="280" Height="400" Background="{StaticResource Brush.Card}" CornerRadius="6" Padding="6">
                     <DockPanel>
                         <TextBox x:Name="PickerFilter" DockPanel.Dock="Top" Margin="0,0,0,6" TextChanged="PickerFilter_TextChanged"

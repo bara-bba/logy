@@ -157,8 +157,18 @@
                            TextWrapping="Wrap" Visibility="Collapsed" />
 
                 <!-- Pull request view (replaces the commit list while PR is on). -->
-                <ListBox x:Name="PullList" Grid.Row="2" Background="Transparent" BorderThickness="0" Visibility="Collapsed"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" PreviewMouseLeftButtonUp="PullList_Click">
+                <DockPanel x:Name="PullView" Grid.Row="2" Visibility="Collapsed">
+                    <DockPanel DockPanel.Dock="Top" Margin="8,6,8,4">
+                        <Button x:Name="NewPullButton" DockPanel.Dock="Left" Style="{StaticResource AccentTextButton}" Height="24"
+                                Content="New pull request" Click="NewPull_Click" />
+                        <TextBlock x:Name="PullStatus" Foreground="{StaticResource Brush.TextTertiary}" FontSize="10"
+                                   VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                    <TextBlock x:Name="PullMessage" DockPanel.Dock="Top" Foreground="{StaticResource Brush.TextTertiary}" Margin="12,6"
+                               TextWrapping="Wrap" Visibility="Collapsed" />
+                <ListBox x:Name="PullList" Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionMode="Single"
+                         SelectionChanged="PullList_SelectionChanged" KeyDown="PullList_KeyDown">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem" BasedOn="{StaticResource CommitItem}">
                             <Setter Property="Height" Value="42" />
@@ -181,8 +191,30 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+                </DockPanel>
 
-                <!-- Details pane. -->
+                <!-- Selected pull request: description and actions. -->
+                <Border x:Name="PullPane" Grid.Row="3" Height="170" Background="{StaticResource Brush.Card}" Visibility="Collapsed">
+                    <Grid>
+                        <Rectangle Height="1" Fill="{StaticResource Brush.Header}" VerticalAlignment="Top" />
+                        <DockPanel Margin="10,8,10,8">
+                            <WrapPanel x:Name="PullActions" DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                                <Button x:Name="ApproveButton" Style="{StaticResource TextButton}" Height="24" Content="Approve"
+                                        Margin="0,0,6,4" Click="Approve_Click" />
+                                <StackPanel x:Name="MergeButtons" Orientation="Horizontal" />
+                                <Button Style="{StaticResource TextButton}" Height="24" Content="Open" Margin="0,0,0,4"
+                                        Click="OpenPull_Click" ToolTip="Open in the browser" />
+                            </WrapPanel>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel>
+                                    <TextBlock x:Name="PullTitle" FontWeight="SemiBold" FontSize="11" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="PullLine2" FontSize="10" Foreground="{StaticResource Brush.TextSecondary}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="PullDescription" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Grid>
+                </Border>
                 <Border x:Name="DetailsPane" Grid.Row="3" Height="160" Background="{StaticResource Brush.Card}" Visibility="Collapsed">
                     <Grid>
                         <Rectangle Height="1" Fill="{StaticResource Brush.Header}" VerticalAlignment="Top" />

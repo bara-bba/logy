@@ -1,0 +1,75 @@
+<Window x:Class="Logy.CreatePullWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="New pull request" Width="460" Height="560" ResizeMode="NoResize"
+        WindowStyle="None" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource Brush.App}" Foreground="{StaticResource Brush.TextPrimary}"
+        FontFamily="Segoe UI" FontSize="12" KeyDown="Window_KeyDown">
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="34" ResizeBorderThickness="0" GlassFrameThickness="0" UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+    <Window.Resources>
+        <Style x:Key="Section" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextTertiary}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Margin" Value="0,10,0,4" />
+        </Style>
+        <Style x:Key="BranchList" TargetType="ListBox">
+            <Setter Property="Height" Value="96" />
+            <Setter Property="Background" Value="{StaticResource Brush.Card}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource PickerItem}">
+                        <Setter Property="Padding" Value="8,3" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="4">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Brush.Button}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Accent}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource Brush.OnAccent}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+        <Grid DockPanel.Dock="Top" Height="34">
+            <TextBlock x:Name="HeaderText" Text="New pull request" VerticalAlignment="Center" Margin="14,0,0,0" />
+            <Button Style="{StaticResource CaptionCloseButton}" Content="&#xE8BB;" HorizontalAlignment="Right"
+                    WindowChrome.IsHitTestVisibleInChrome="True" Click="Cancel_Click" ToolTip="Close" />
+        </Grid>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16,8,16,14">
+            <TextBlock x:Name="ValidationText" Foreground="{StaticResource Brush.Danger}" FontSize="11" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <Button Style="{StaticResource TextButton}" Content="Cancel" Margin="0,0,8,0" Click="Cancel_Click" />
+            <Button Style="{StaticResource AccentTextButton}" Content="Create" Click="Create_Click" />
+        </StackPanel>
+
+        <StackPanel Margin="16,0,16,0">
+            <TextBlock Text="FROM BRANCH" Style="{StaticResource Section}" Margin="0,2,0,4" />
+            <ListBox x:Name="SourceList" Style="{StaticResource BranchList}" SelectionChanged="SourceList_SelectionChanged" />
+            <TextBlock x:Name="TargetLabel" Text="INTO" Style="{StaticResource Section}" />
+            <ListBox x:Name="TargetList" Style="{StaticResource BranchList}" />
+            <TextBlock Text="TITLE" Style="{StaticResource Section}" />
+            <TextBox x:Name="TitleBox" />
+            <TextBlock Text="DESCRIPTION (optional)" Style="{StaticResource Section}" />
+            <TextBox x:Name="DescriptionBox" Height="72" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
+                     VerticalScrollBarVisibility="Auto" />
+        </StackPanel>
+    </DockPanel>
+</Window>

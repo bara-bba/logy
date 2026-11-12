@@ -54,6 +54,7 @@ public partial class RepoPanel : UserControl
 
     private readonly PullSource? _pullSource;
     private bool _pullsLoading;
+    private bool _pullBusy;
 
     public RepoPanel(RepoInfo repo)
     {
@@ -395,11 +396,11 @@ public partial class RepoPanel : UserControl
         await RunCommandAsync("Push", PushButton, ct => GitAsync(args, true, ct));
     }
 
-    private async Task RunCommandAsync(string name, Button button, Func<CancellationToken, Task<GitResult>> command)
+    private async Task<bool> RunCommandAsync(string name, Button button, Func<CancellationToken, Task<GitResult>> command)
     {
         if (RunningCommand is not null || _shutdown)
         {
-            return;
+            return false;
         }
 
         RunningCommand = name;
@@ -438,6 +439,7 @@ public partial class RepoPanel : UserControl
         }
 
         UpdateButtons();
+        return result?.Ok == true;
     }
 
     private void StartSpinner(Button button)
@@ -511,23 +513,26 @@ public partial class RepoPanel : UserControl
     private void PullsToggle_Changed(object sender, RoutedEventArgs e)
     {
         var on = PullsToggle.IsChecked == true;
-        PullList.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        PullView.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
         CommitList.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
         if (on)
         {
             DetailsPane.Visibility = Visibility.Collapsed;
+            ListMessage.Visibility = Visibility.Collapsed;
+            ShowPullPane();
             _ = LoadPullsAsync();
         }
         else
         {
+            PullPane.Visibility = Visibility.Collapsed;
             ListMessage.Visibility = _rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             ListMessage.Text = _rows.Count == 0 ? "no commits yet" : "";
             DetailsPane.Visibility = CommitList.SelectedItem is CommitRowViewModel ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 
-    /// <summary>Reads open pull requests (read-only) and updates the PR button count and list.</summary>
-    private async Task LoadPullsAsync()
+    /// <summary>Reads open pull requests and updates the PR button count and list. Keeps the selection by id.</summary>
+    private async Task LoadPullsAsync(string? select = null)
     {
         if (_pullSource is null || _pullsLoading || _shutdown)
         {
@@ -537,24 +542,22 @@ public partial class RepoPanel : UserControl
         _pullsLoading = true;
         if (PullsToggle.IsChecked == true && PullList.Items.Count == 0)
         {
-            ShowListMessage("loading pull requests…");
+            SetPullMessage("loading pull requests…");
         }
 
         try
         {
+            var keep = select ?? (PullList.SelectedItem as PullRowViewModel)?.Pull.Id;
             var result = await App.Pulls.LoadAsync(_pullSource, Repo.Path, _life.Token);
             var now = DateTimeOffset.Now;
-            PullList.ItemsSource = result.Pulls.Select(p => new PullRowViewModel(p, now)).ToList();
+            var rows = result.Pulls.Select(p => new PullRowViewModel(p, now)).ToList();
+            PullList.ItemsSource = rows;
+            PullList.SelectedItem = rows.FirstOrDefault(r => r.Pull.Id == keep);
             PullsToggleText.Text = result.Error is null && result.Pulls.Count > 0 ? $"PR {result.Pulls.Count}" : "PR";
             PullsToggle.ToolTip = result.Error is null
                 ? $"{result.Pulls.Count} open pull request{(result.Pulls.Count == 1 ? "" : "s")}"
                 : "pull requests: " + result.Error;
-            if (PullsToggle.IsChecked == true)
-            {
-                var msg = result.Error ?? (result.Pulls.Count == 0 ? "no open pull requests" : null);
-                ListMessage.Text = msg ?? "";
-                ListMessage.Visibility = msg is null ? Visibility.Collapsed : Visibility.Visible;
-            }
+            SetPullMessage(result.Error ?? (result.Pulls.Count == 0 ? "no open pull requests" : null));
         }
         catch (OperationCanceledException)
         {
@@ -565,13 +568,232 @@ public partial class RepoPanel : UserControl
         }
     }
 
-    private void PullList_Click(object sender, MouseButtonEventArgs e)
+    private void SetPullMessage(string? text)
     {
-        if (e.OriginalSource is DependencyObject src
-            && ItemsControl.ContainerFromElement(PullList, src) is ListBoxItem { DataContext: PullRowViewModel row }
-            && row.Pull.WebUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        PullMessage.Text = text ?? "";
+        PullMessage.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void PullList_SelectionChanged(object sender, SelectionChangedEventArgs e) => ShowPullPane();
+
+    private void PullList_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(row.Pull.WebUrl) { UseShellExecute = true });
+            PullList.SelectedItem = null;
+            e.Handled = true;
+        }
+    }
+
+    private PullRequest? SelectedPull => (PullList.SelectedItem as PullRowViewModel)?.Pull;
+
+    private void ShowPullPane()
+    {
+        var pr = SelectedPull;
+        if (pr is null || PullsToggle.IsChecked != true || _pullSource is null)
+        {
+            PullPane.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        PullPane.Visibility = Visibility.Visible;
+        PullTitle.Text = $"#{pr.Id} {pr.Title}";
+        PullLine2.Text = string.Join(" · ", new[] { pr.Author, $"{pr.SourceBranch} → {pr.TargetBranch}" }.Where(x => x.Trim().Length > 1));
+        PullDescription.Text = pr.Description.Trim();
+        PullDescription.Visibility = pr.Description.Trim().Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+
+        MergeButtons.Children.Clear();
+        foreach (var m in MergeMethods.For(_pullSource.Kind))
+        {
+            var first = MergeButtons.Children.Count == 0;
+            var b = new Button
+            {
+                Content = first ? $"Merge ({MergeMethods.Label(m)})" : MergeMethods.Label(m),
+                Style = (Style)FindResource(first ? "AccentTextButton" : "TextButton"),
+                Height = 24,
+                Margin = new Thickness(0, 0, 6, 4),
+                ToolTip = $"Merge into {pr.TargetBranch} with {MergeMethods.Label(m)}",
+            };
+            b.Click += async (_, _) => await MergeAsync(m);
+            MergeButtons.Children.Add(b);
+        }
+
+        SetPullActionsEnabled(!_pullBusy);
+    }
+
+    private void SetPullActionsEnabled(bool on)
+    {
+        NewPullButton.IsEnabled = on;
+        ApproveButton.IsEnabled = on;
+        foreach (var b in MergeButtons.Children.OfType<Button>())
+        {
+            b.IsEnabled = on;
+        }
+    }
+
+    private void OpenPull_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedPull is { } pr && pr.WebUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(pr.WebUrl) { UseShellExecute = true });
+        }
+    }
+
+    /// <summary>Remote the pull requests live on: origin, else the first remote (same rule as the chip).</summary>
+    private string? PullRemote => Repo.RemoteNames.Contains("origin") ? "origin" : Repo.RemoteNames.FirstOrDefault();
+
+    private string? LocalHash(string branch) => _refLines.FirstOrDefault(l => l.RefName == "refs/heads/" + branch)?.ObjectName;
+
+    private async void NewPull_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pullSource is null || PullRemote is not { } remote || _pullBusy)
+        {
+            return;
+        }
+
+        var locals = _refLines.Where(l => l.RefName.StartsWith("refs/heads/", StringComparison.Ordinal))
+            .Select(l => l.RefName["refs/heads/".Length..]).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        var prefix = $"refs/remotes/{remote}/";
+        var targets = _refLines.Where(l => l.RefName.StartsWith(prefix, StringComparison.Ordinal))
+            .Select(l => l.RefName[prefix.Length..]).Where(x => x != "HEAD").OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        if (locals.Count == 0 || targets.Count == 0)
+        {
+            ShowError($"no branches on {remote} yet: push a branch first", $"no branches on {remote} yet: push a branch first", null);
+            return;
+        }
+
+        var target = new[] { "main", "master" }.FirstOrDefault(targets.Contains) ?? targets[0];
+        var source = _status.Branch is { } cur && cur != target ? cur : locals.FirstOrDefault(b => b != target);
+        string TitleFor(string b) =>
+            LocalHash(b) is { } h ? _rows.FirstOrDefault(r => r.Hash == h)?.Subject ?? "" : "";
+
+        var input = CreatePullWindow.Ask(Window.GetWindow(this)!, locals, targets, source, target, remote, TitleFor);
+        if (input is null)
+        {
+            return;
+        }
+
+        // The pull request is built from the remote branch, so it must exist there and match local.
+        var local = LocalHash(input.Source);
+        var onRemote = _refLines.FirstOrDefault(l => l.RefName == prefix + input.Source)?.ObjectName;
+        if (local is not null && local != onRemote)
+        {
+            var what = onRemote is null ? $"{input.Source} is not on {remote} yet." : $"{input.Source} has commits that are not on {remote}.";
+            if (MessageBox.Show(Window.GetWindow(this)!, $"{what} Push it first?", "logy", MessageBoxButton.YesNo, MessageBoxImage.Question)
+                != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            var hasUpstream = _refLines.Any(l => l.RefName == "refs/heads/" + input.Source && l.UpstreamRemote.Length > 0);
+            string[] args = hasUpstream
+                ? ["push", remote, $"{input.Source}:{input.Source}"]
+                : ["push", "-u", remote, input.Source];
+            if (!await RunCommandAsync("Push", PushButton, ct => GitAsync(args, true, ct)))
+            {
+                return;
+            }
+        }
+
+        await PullActionAsync("creating pull request…", async ct =>
+        {
+            var r = await App.Pulls.CreateAsync(_pullSource, Repo.Path, input.Source, input.Target, input.Title, input.Description, ct);
+            if (r.Ok)
+            {
+                PullStatus.Text = r.Pull is { } p ? $"created #{p.Id}" : "created";
+                await LoadPullsAsync(r.Pull?.Id);
+            }
+
+            return r;
+        });
+    }
+
+    private async void Approve_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pullSource is null || SelectedPull is not { } pr || _pullBusy)
+        {
+            return;
+        }
+
+        if (MessageBox.Show(Window.GetWindow(this)!, $"Approve #{pr.Id} \"{pr.Title}\"?", "logy", MessageBoxButton.YesNo, MessageBoxImage.Question)
+            != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        await PullActionAsync("approving…", async ct =>
+        {
+            var r = await App.Pulls.ApproveAsync(_pullSource, Repo.Path, pr, ct);
+            if (r.Ok)
+            {
+                PullStatus.Text = $"approved #{pr.Id}";
+            }
+
+            return r;
+        });
+    }
+
+    private async Task MergeAsync(MergeMethod method)
+    {
+        if (_pullSource is null || SelectedPull is not { } pr || _pullBusy)
+        {
+            return;
+        }
+
+        var q = $"Merge #{pr.Id} \"{pr.Title}\" into {pr.TargetBranch} ({MergeMethods.Label(method)})?\n\nThis changes {pr.TargetBranch} on the remote.";
+        if (MessageBox.Show(Window.GetWindow(this)!, q, "logy", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var merged = false;
+        await PullActionAsync("merging…", async ct =>
+        {
+            var r = await App.Pulls.MergeAsync(_pullSource, Repo.Path, pr, method, ct);
+            if (r.Ok)
+            {
+                merged = true;
+                PullStatus.Text = $"merged #{pr.Id} into {pr.TargetBranch}";
+                PullList.SelectedItem = null;
+                await LoadPullsAsync();
+            }
+
+            return r;
+        });
+
+        if (merged && HasRemote)
+        {
+            // Bring the merge into the tree.
+            await RunCommandAsync("Fetch", FetchButton, ct => GitAsync(["fetch", "--all", "--prune"], true, ct));
+        }
+    }
+
+    /// <summary>One pull request write at a time per panel; failures go to the error bar.</summary>
+    private async Task PullActionAsync(string busyText, Func<CancellationToken, Task<PullActionResult>> action)
+    {
+        _pullBusy = true;
+        SetPullActionsEnabled(false);
+        PullStatus.Text = busyText;
+        try
+        {
+            var r = await action(_life.Token);
+            if (r.Ok)
+            {
+                ClearFailure();
+            }
+            else
+            {
+                PullStatus.Text = "";
+                ShowError(r.Error!, r.Error!, null);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _pullBusy = false;
+            SetPullActionsEnabled(true);
         }
     }
 
